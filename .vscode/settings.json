@@ -1,0 +1,5 @@
+{
+    "restructuredtext.confPath": "${workspaceFolder}/docs",
+    "python.formatting.provider": "black",
+    "python.pythonPath": "venv/bin/python3"
+}
