@@ -17,9 +17,9 @@ dirname = os.path.dirname(__file__)
 path = os.path.join(dirname, "src", "asyc_mock_http", "__meta__.py")
 meta = (
     """# Automatically created. Please do not edit.
-        __version__ = '%s'
-        __author__ = 'Ketan Patel'
-    """
+__version__ = '%s'
+__author__ = 'Ketan Patel'
+"""
     % version
 )
 with open(path, "w") as F:
