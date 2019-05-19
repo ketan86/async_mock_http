@@ -25,7 +25,7 @@ install:
 
 # Run tests
 script:
-  tox
+  tox -e $TOX_ENV
 
 # Register code coverage in coveralls
 after_success:
