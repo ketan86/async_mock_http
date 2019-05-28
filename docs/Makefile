@@ -94,9 +94,9 @@ qthelp:
 	@echo
 	@echo "Build finished; now you can run "qcollectiongenerator" with the" \
 	      ".qhcp project file in $(BUILDDIR)/qthelp, like this:"
-	@echo "# qcollectiongenerator $(BUILDDIR)/qthelp/async_mock_http.qhcp"
+	@echo "# qcollectiongenerator $(BUILDDIR)/qthelp/py_mock_http.qhcp"
 	@echo "To view the help file:"
-	@echo "# assistant -collectionFile $(BUILDDIR)/qthelp/async_mock_http.qhc"
+	@echo "# assistant -collectionFile $(BUILDDIR)/qthelp/py_mock_http.qhc"
 
 .PHONY: applehelp
 applehelp:
@@ -113,8 +113,8 @@ devhelp:
 	@echo
 	@echo "Build finished."
 	@echo "To view the help file:"
-	@echo "# mkdir -p $$HOME/.local/share/devhelp/async_mock_http"
-	@echo "# ln -s $(BUILDDIR)/devhelp $$HOME/.local/share/devhelp/async_mock_http"
+	@echo "# mkdir -p $$HOME/.local/share/devhelp/py_mock_http"
+	@echo "# ln -s $(BUILDDIR)/devhelp $$HOME/.local/share/devhelp/py_mock_http"
 	@echo "# devhelp"
 
 .PHONY: epub

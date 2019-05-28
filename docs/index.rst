@@ -1,5 +1,5 @@
 ================================================================================
-Welcome to async_mock_http's documentation!
+Welcome to py_mock_http's documentation!
 ================================================================================
 
 .. include:: warning.rst

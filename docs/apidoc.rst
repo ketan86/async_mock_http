@@ -2,7 +2,7 @@
 API Reference
 =============
 
-API documentation for the async_mock_http module.
+API documentation for the py_mock_http module.
 
-.. automodule:: async_mock_http
+.. automodule:: py_mock_http
    :members:

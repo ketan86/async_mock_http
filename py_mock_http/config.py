@@ -3,17 +3,21 @@
 import configparser
 import os
 from collections import abc
+from .exceptions import EnvNotSetError
 
-PREFIX = "ASYNC_MOCK_HTTP_"
+PREFIX = "PY_MOCK_HTTP_"
+CONFIG_FILE = PREFIX + "CONFIG"
+
 
 DEFAULT_CONFIG = {
     "HOST": "0.0.0.0",
-    "PORTS": "8080",
-    "SSL": False,
-    "SSL_PORT": "443",
+    "HTTP_PORT": "8888",
+    "HTTPS_PORT": "443",
     "REALOAD_CONFIG": False,
     "CERTIFICATE_FILE": None,
     "CERTIFICATE_KEY": None,
+    "SERVER_REQUEST_TIMEOUT": 10,
+    "HANDLER_LOCATION": "./py_mock_http/handler"
 }
 
 
@@ -41,6 +45,14 @@ def load_from_string(config_str, section="server"):
     return Config(config[section])
 
 
+def load_from_env_file():
+    if CONFIG_FILE in os.environ:
+        with open(os.environ[CONFIG_FILE], 'r') as fh:
+            return load_from_string(fh.read())
+    else:
+        raise EnvNotSetError('PY_MOCK_HTTP_CONFIG not set.')
+
+
 def load_from_env_vars(prefix=PREFIX):
     config = Config(None)
     for k, v in os.environ.items():
@@ -63,7 +75,9 @@ class Config(abc.MutableMapping):
     def __init__(self, config):
         config = config or {}
         self._config = {}
+        # load default config
         self._config.update(**DEFAULT_CONFIG)
+        # override with user config
         self._config.update(**config)
 
     def __getitem__(self, name):

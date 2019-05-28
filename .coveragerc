@@ -1,5 +1,5 @@
 [run]
-include = src/*
+include = py_mock_http/*
 branch = True
 
 
@@ -29,4 +29,4 @@ ignore_errors = True
 
 
 [paths]
-source = src/
+source = py_mock_http/

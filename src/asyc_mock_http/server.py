@@ -1,2 +1,0 @@
-"""Async Mock HTTP server.
-"""

@@ -51,7 +51,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = 'asyc_mock_http'
+project = 'py_mock_http'
 project_title = project.title()
 author = 'Ketan Patel'
 copyright = '2016, %s' % author

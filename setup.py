@@ -14,7 +14,7 @@ from setuptools import find_packages, setup
 # Save version and author to __meta__.py
 version = open("VERSION").read().strip()
 dirname = os.path.dirname(__file__)
-path = os.path.join(dirname, "src", "asyc_mock_http", "__meta__.py")
+path = os.path.join(dirname, "py_mock_http", "__meta__.py")
 meta = (
     """# Automatically created. Please do not edit.
 __version__ = '%s'
@@ -27,7 +27,7 @@ with open(path, "w") as F:
 
 setup(
     # Basic info
-    name="asyc-mock-http",
+    name="py-mock-http",
     version=version,
     author="Ketan Patel",
     author_email="ketan86ecer@gmail.com",
@@ -46,9 +46,9 @@ setup(
         "Topic :: Software Development :: Libraries",
     ],
     # Packages and dependencies
-    package_dir={"": "src"},
-    packages=find_packages("src"),
-    install_requires=[],
+    package_dir={"": "py_mock_http"},
+    packages=find_packages("py_mock_http"),
+    install_requires=['Click', 'Sanic'],
     extras_require={"dev": ["python-boilerplate[dev]", "manuel"]},
     # Other configurations
     zip_safe=False,

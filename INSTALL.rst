@@ -2,9 +2,9 @@
 Installation instructions
 =========================
 
-async_mock_http can be installed using pip::
+py_mock_http can be installed using pip::
 
-    $ python -m pip install async_mock_http
+    $ python -m pip install py_mock_http
 
 This command will fetch the archive and its dependencies from the internet and
 install them. 

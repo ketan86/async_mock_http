@@ -1,14 +1,14 @@
 import os
 import argparse
 
-from src.asyc_mock_http import __version__
+from src.py_mock_http import __version__
 
 
 def get_parser():
     """
     Creates a new argument parser.
     """
-    parser = argparse.ArgumentParser('async_mock_http')
+    parser = argparse.ArgumentParser('py_mock_http')
     version = '%(prog)s ' + __version__
     parser.add_argument('--version', '-v', action='version', version=version)
     return parser
@@ -16,7 +16,7 @@ def get_parser():
 
 def main(args=None):
     """
-    Called with ``python -m asyc_mock_http.tests``: run main test suite.
+    Called with ``python -m py_mock_http.tests``: run main test suite.
     """
 
     parser = get_parser()
@@ -33,7 +33,7 @@ def main(args=None):
         )
 
     # Get data from test_module
-    import asyc_mock_http.tests as test_module
+    import py_mock_http.tests as test_module
     test_path = os.path.abspath(os.path.dirname(test_module.__file__))
     pytest.main([test_path, '-m', 'not documentation'])
 
