@@ -1,26 +1,18 @@
-"""Python Mock HTTP server.
-"""
 import logging
 import os
-from exceptions import AttachFailed, DetachFailed
+import re
+import json
+from exceptions import AppAttachFailed, AppDetachFailed
 from http.server import BaseHTTPRequestHandler, HTTPServer, HTTPStatus
+from http import HTTPStatus
 from multiprocessing import Process, ProcessError
-
 import click
-from app.base_app import AppRegistry, BaseApp
-from app.sanic_app import SanicApp
-from app.flask_app import FlaskApp
-from app.bottle_app import BottleApp
+from app.base_app import AppRegistry
 from utils import singleton
-
-logging.getLogger().setLevel(logging.DEBUG)
-logging.getLogger().addHandler(logging.StreamHandler())
-logging.getLogger().handlers[0].setFormatter(logging.Formatter(
-    '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'))
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = '/mock/app/'
+BASE_URL = '/mock/'
 
 
 @singleton
@@ -32,7 +24,7 @@ class Server:
     def apps(self):
         return self._apps
 
-    def is_alive(self, app):
+    def _is_alive(self, app):
         return self._apps[app].is_alive()
 
     def __contains__(self, app):
@@ -46,10 +38,10 @@ class Server:
             process.daemon = True
             process.start()
             logger.info(
-                f'Attached the app {app.name} to a server with an id {app.id}.'
+                f'Attached {app.name} app to a server with an id {app.id}.'
             )
-        except ProcessError:
-            raise AttachFailed(f'Could not attach the app {app.name}')
+        except (ProcessError):
+            raise AppAttachFailed(f'Could not attach the app {app.name}')
         else:
             self._apps[app] = process
 
@@ -57,109 +49,111 @@ class Server:
         try:
             self._apps[app].terminate()
             logger.info(
-                f'Detached the app {app.name} from a server with an id {app.id}.')
+                f'Detached {app.name} app from a server with an id {app.id}.')
         except ProcessError:
-            raise DetachFailed(f'Could not detach the app {app.name}')
+            raise AppDetachFailed(f'Could not detach the app {app.name}')
         else:
             del self._apps[app]
 
 
 class MockHTTPRequestHandler(BaseHTTPRequestHandler):
+    MOCK_APP_URL = re.compile(r'^\/mock\/app\/*$')
 
     def do_DELETE(self):
-        if BASE_URL.find(self.path) == 0:
-            self.handle_delete()
+        if self.MOCK_APP_URL.match(self.path):
+            logger.debug(f'Handing {self.command} on {self.path}')
+            self.delete_app()
 
     def do_POST(self):
-        if BASE_URL.find(self.path) == 0:
-            logger.debug(f'Handing POST on {self.path}')
-            self.handle_post()
+        if self.MOCK_APP_URL.match(self.path):
+            logger.debug(f'Handing {self.command} on {self.path}')
+            self.create_app()
 
     def do_GET(self):
-        if BASE_URL.find(self.path) == 0:
-            self.handle_get()
+        if self.MOCK_APP_URL.match(self.path):
+            logger.debug(f'Handing {self.command} on {self.path}')
+            self.get_app()
 
     def get_body(self):
         return self.rfile.read(int(self.headers.get('Content-Length')))
 
-    def handle_get(self):
-        app_name = self.headers.get('m-app-name', None)
-        app_id = self.headers.get('m-app-id', None)
-
-        if app_name is not None and app_id is not None:
+    def get_app(self):
+        app_id = self.headers.get('m-app-id')
+        if app_id is not None:
             for app in Server().apps:
-                if app.id == app_id and app.name == app_name:
-                    if Server().is_alive(app):
-                        self.send_response(
-                            200, f'App {app.name} is running.')
+                if app.id == app_id:
+                    if Server()._is_alive(app):
+                        self.send_response(HTTPStatus.OK)
+                        self.end_headers()
+                        self.wfile.write(json.dumps({
+                            'status': 'running',
+                            'host': app.host,
+                            'port': app.port
+                        }).encode())
                     else:
-                        self.send_error(
-                            500, f'App {app.name} is not running.')
+                        self.send_response(HTTPStatus.NOT_FOUND)
+                        self.end_headers()
+                        self.wfile.write(json.dumps({
+                            'msg': f'{app.name} app not running.'
+                        }).encode())
                     break
             else:
-                self.send_error(
-                    404, 'App {} with id {} not found'.format(
-                        app_name,
-                        app_id))
+                self.send_error(HTTPStatus.NOT_FOUND,
+                                f'App not found.')
         else:
-            msg = 'Headers m-app-name and m-app-id not found.'
-            logger.error(msg)
-            self.send_error(500, msg)
+            self.send_error(HTTPStatus.BAD_REQUEST,
+                            'm-app-id not found.')
 
-    def handle_post(self):
-        app_name = self.headers.get('m-app-name', None)
-        app_port = self.headers.get('m-app-port', None)
+    def create_app(self):
+        app_name = self.headers.get('m-app-name')
+        app_port = self.headers.get('m-app-port')
         if app_name is not None and app_port is not None:
             try:
                 app = getattr(AppRegistry, app_name.lower())(
-                    self.get_body().decode())
+                    json.loads(self.get_body().decode()))
             except AttributeError:
-                msg = 'App {} is not supported'.format(app_name)
+                msg = f'App {app_name} is not supported'
                 logger.exception(msg)
-                self.send_error(500, msg)
+                self.send_response(HTTPStatus.NOT_FOUND, msg)
                 return
             try:
                 Server().attach(app, port=int(app_port))
-            except AttachFailed as error:
+            except (AppAttachFailed, OSError) as error:
                 logger.exception(error)
-                self.send_error(500, error)
+                self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, error)
+                return
             else:
-                self.send_header("Content-type", "text/html")
+                self.send_response(HTTPStatus.OK)
+                self.send_header('m-app-id', app.id)
                 self.end_headers()
-                self.send_response(200)
-                self.wfile.write(app.id.encode())
+                self.wfile.write(json.dumps(
+                    {'msg': f'{app.name} app created.'}).encode())
 
         else:
-            msg = 'Header m-app-name and m-app-port not found.'
-            logger.error(msg)
-            self.send_error(500, msg)
+            self.send_error(HTTPStatus.BAD_REQUEST,
+                            'm-app-name and m-app-port not found.')
 
-    def handle_delete(self):
-        app_name = self.headers.get('m-app-name', None)
-        app_id = self.headers.get('m-app-id', None)
+    def delete_app(self):
+        app_id = self.headers.get('m-app-id')
 
-        if app_name is not None and app_id is not None:
+        if app_id is not None:
             for app in Server().apps:
-                if app.id == app_id and app.name == app_name:
+                if app.id == app_id:
                     try:
                         Server().detach(app)
-                    except DetachFailed as error:
-                        logger.exception(error)
+                    except AppDetachFailed as error:
                         self.send_error(500, error)
                     else:
                         self.send_response(
                             200, 'App {} detached from the server.'.format(
-                                app_name))
+                                app.name))
                     break
             else:
                 self.send_error(
-                    404, 'App {} with id {} not found'.format(
-                        app_name,
-                        app_id))
+                    404, 'App not found.')
         else:
-            msg = 'Headers m-app-name and m-app-id not found.'
-            logger.error(msg)
-            self.send_error(500, msg)
+            self.send_error(HTTPStatus.BAD_REQUEST,
+                            'm-app-id not found.')
 
 
 @click.command()
@@ -170,6 +164,7 @@ def run(host, port):
     try:
         server.serve_forever()
     except KeyboardInterrupt:
+        logger.info('KeyboardInterrupt. Detaching all apps.')
         [Server().detach(app) for app in list(Server().apps)]
         server.server_close()
 

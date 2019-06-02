@@ -3,12 +3,7 @@ bottle requests.
 """
 from __future__ import absolute_import
 
-import importlib
-import json
-from uuid import uuid4
-
 from app.base_app import BaseApp
-# from route import Handler, Server
 from bottle import Bottle, run
 
 

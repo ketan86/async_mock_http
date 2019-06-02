@@ -1,10 +1,7 @@
 """Abstract Base Application"""
-import abc
-from enum import Enum, unique, auto
-from functools import wraps
+from exceptions import DuplicateAppError
 from uuid import uuid4
-from exceptions import DuplicateAppRegistration
-from handler import AbstractHandler
+from handler import AbstractHandler, register_handler_routes
 
 
 class AppRegistry():
@@ -17,20 +14,28 @@ class MetaApp(type):
         if not hasattr(AppRegistry, cls.name.lower()):
             setattr(AppRegistry, cls.name.lower(), cls)
         else:
-            raise DuplicateAppRegistration(
+            raise DuplicateAppError(
                 f'App name {cls.name} is registered twice.')
         return cls
 
+    @register_handler_routes
+    def __call__(cls, *args, **kwargs):
+        return super().__call__(*args, **kwargs)
 
-class BaseApp(metaclass=MetaApp):
+
+class BaseApp(AbstractHandler, metaclass=MetaApp):
     name = 'Base'
 
-    def __init__(self, config):
-        AbstractHandler.__init__(self)
-        self.config = config
+    def __init__(self):
         self.id = '-'.join([self.name, str(uuid4())])
-        self.register()
+        self._host = '0.0.0.0'
+        self._port = 8000
+        self.handler_data = {}
 
-    def register(self):
-        self.register_for_handler()
-        self.register_for_handler_data()
+    @property
+    def port(self):
+        return self._port
+
+    @property
+    def host(self):
+        return self._host
