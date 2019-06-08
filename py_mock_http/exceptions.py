@@ -18,20 +18,27 @@ class ClientException(PyMockHttpException):
     """Base client exception"""
 
 
+class ConnectError(ClientException):
+    """Raised when client can not connect to a server"""
+
+
 class ServerException(PyMockHttpException):
     """Base server exception"""
 
-class DuplicateAppRegistration(Exception):
+
+class DuplicateAppError(Exception):
     """Raised when duplicate app is registered"""
+
 
 class AppNotSupported(ServerException):
     """Raised when application requested by client is not supported"""
 
 
-class AttachFailed(ServerException):
+class AppAttachFailed(ServerException):
     """Raised when application could not attach to the server"""
 
-class DetachFailed(ServerException):
+
+class AppDetachFailed(ServerException):
     """Raised when application could not detach from the server"""
 
 

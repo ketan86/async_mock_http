@@ -17,6 +17,7 @@ def register_handler_routes(func):
         return obj
     return wrapper
 
+
 class AbstractHandler:
 
     @abc.abstractmethod
@@ -51,10 +52,8 @@ class HandlerMixin:
         if temp:
             os.system('rm ' + file_location + '*')
 
-    def import_handler(self, name, data, save=True):
-        temp = False if save else True
-
-        with self.save_handler(name, data, temp=temp) as file_location:
+    def import_handler(self, name, data, save_temp=True):
+        with self.save_handler(name, data, temp=save_temp) as file_location:
             spec = importlib.util.spec_from_file_location(
                 name, file_location)
             module = importlib.util.module_from_spec(spec)

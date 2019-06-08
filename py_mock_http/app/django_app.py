@@ -5,6 +5,8 @@ from __future__ import absolute_import
 
 import json
 import logging
+import sys
+from functools import wraps
 from http import HTTPStatus
 
 from django.conf import LazySettings, settings
@@ -20,20 +22,29 @@ logger = logging.getLogger(__name__)
 
 urlpatterns = []
 
-global request_middleware
-request_middleware = None
 
-
-def export_at_module(func):
-    global request_middleware
-    request_middleware = func
-
-    def wrapper(*args, **kwargs):
-        func(*args, **kwargs)
+def export_globally_as(name):
+    def wrapper(func):
+        module = sys.modules[__name__]
+        setattr(module, name, func)
     return wrapper
 
 
-class DjangoApp(BaseApp, HandlerMixin):
+def enforce_headers(headers):
+    @wraps(headers)
+    def decorated(func):
+        def wrapper(request):
+            for h in headers:
+                if h not in request.headers:
+                    return HttpResponse(
+                        json.dumps({'error': f'{h} header is mandatory.'}),
+                        status=HTTPStatus.BAD_REQUEST)
+            return func(request)
+        return wrapper
+    return decorated
+
+
+class DjangoApp(HandlerMixin, BaseApp):
     HANDLER_LOCATION = './py_mock_http/handlers/django/'
     name = 'django'
 
@@ -45,10 +56,10 @@ class DjangoApp(BaseApp, HandlerMixin):
                            **config)
 
     def reg_request_middleware(self):
-        @export_at_module
+
+        @export_globally_as('request_middleware')
         def request_middleware(get_response):
             def middleware(request):
-                print(type(request))
                 request.handler_data = self.handler_data.get(
                     request.path, {})
                 response = get_response(request)
@@ -60,13 +71,19 @@ class DjangoApp(BaseApp, HandlerMixin):
 
     def reg_handler_route(self):
 
+        @enforce_headers(['m-handler-name'])
         def handle_handler_data(request):
             handler_name = request.headers['m-handler-name']
             urlpatterns_name = request.headers.get(
                 'm-urlpatterns-name', None) or 'urlpatterns'
-            module = self.import_handler(handler_name,
-                                         request.body.decode())
-            paths = getattr(module, urlpatterns_name)
+            try:
+                module = self.import_handler(handler_name,
+                                             request.body.decode())
+                paths = getattr(module, urlpatterns_name)
+            except Exception:
+                return HttpResponse(
+                    json.dumps({'error': 'Invalid handler data.'}),
+                    status=HTTPStatus.BAD_REQUEST)
 
             if request.method == "POST":
                 for path in paths:
@@ -105,6 +122,8 @@ class DjangoApp(BaseApp, HandlerMixin):
         urlpatterns.append(path(HANDLER_URL[1:], handle_handler_data))
 
     def reg_handler_data_route(self):
+
+        @enforce_headers(['m-handler-url'])
         def handle_data(request):
             url = request.headers['m-handler-url']
             if request.method == "POST":
