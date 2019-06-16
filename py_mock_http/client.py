@@ -7,9 +7,10 @@ import importlib
 import json
 import abc
 from http.client import HTTPConnection, HTTPSConnection, HTTPException
-from exceptions import ClientException, ConnectError
+from py_mock_http.exceptions import (ClientException, ConnectError,
+                                     AppException, HandlerException)
 
-from utils import check
+from py_mock_http.utils import permit_access_if
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,6 @@ class HTTPAdapter(BaseAdapter):
         except HTTPException:
             raise ConnectError(
                 f'Could not connect to a {self.host}.')
-
         return self._conn
 
     def disconnect(self):
@@ -92,7 +92,6 @@ class HTTPSAdapter(HTTPAdapter):
         except HTTPException:
             raise ConnectError(
                 f'Could not connect to a server {self.host}')
-
         return self._conn
 
 
@@ -114,7 +113,7 @@ class Handler:
     def name(self):
         return self._name
 
-    @check('handler_set', True, msg='Handler is not set.')
+    @permit_access_if('handler_set', True, msg='Handler is not set.')
     def set_data(self, url, data):
         headers = {'m-handler-url': url}
         self.conn.request('POST',
@@ -122,48 +121,48 @@ class Handler:
                           body=json.dumps(data),
                           headers=headers)
         response = self.conn.getresponse()
+        body = json.loads(response.read().decode())
         if response.status != 200:
-            raise ClientException(
-                f'Could not set the handler data.')
-        return json.loads(response.read())
+            raise HandlerException(f'{body["error"]}')
+        return body
 
-    @check('handler_set', True, msg='Handler is not set.')
+    @permit_access_if('handler_set', True, msg='Handler is not set.')
     def remove_data(self, url):
         headers = {'m-handler-url': url}
         self.conn.request('DELETE',
                           self.base_url + 'data/',
                           headers=headers)
         response = self.conn.getresponse()
+        body = json.loads(response.read().decode())
         if response.status != 200:
-            raise ClientException(
-                f'Could not remove the handler data.')
-        return json.loads(response.read())
+            raise HandlerException(f'{body["error"]}')
+        return body
 
-    def set(self, data):
+    def attach(self, data):
         headers = {'m-handler-name': self._name}
         self.conn.request('POST',
                           self.base_url,
                           body=data,
                           headers=headers)
         response = self.conn.getresponse()
+        body = json.loads(response.read().decode())
         if response.status != 200:
-            raise ClientException(
-                f'Could not set the {self._name} handler.')
+            raise HandlerException(f'{body["error"]}')
         self.handler_set = True
-        return json.loads(response.read())
+        return body
 
-    @check('handler_set', True, msg='Handler is not set.')
-    def remove(self):
+    @permit_access_if('handler_set', True, msg='Handler is not set.')
+    def detach(self):
         headers = {'m-handler-name': self._name}
         self.conn.request('DELETE',
                           self.base_url,
                           headers=headers)
         response = self.conn.getresponse()
+        body = json.loads(response.read().decode())
         if response.status != 200:
-            raise ClientException(
-                f'Could not remove the {self._name} handler.')
+            raise HandlerException(f'{body["error"]}')
         self.handler_set = False
-        return json.loads(response.read())
+        return body
 
     def __repr__(self):
         return f'<Handler name={self._name}>'
@@ -175,6 +174,9 @@ class App:
     def __init__(self, name, **kwargs):
         self._name = name
         self._id = None
+        self._enable_ssl = kwargs.get('enable_ssl', False)
+        self._ssl_cert = kwargs.get('ssl_cert', None)
+        self._ssl_key = kwargs.get('ssl_key', None)
         self.port = kwargs['port']
         self.conn = kwargs['conn']
         self.base_url = "/mock/app/"
@@ -182,70 +184,76 @@ class App:
 
     @property
     def name(self):
-        self._name
+        return self._name
 
     @property
     def id(self):
-        self._id
+        return self._id
 
-    @check('started', True, msg='App has not started.')
+    @permit_access_if('started', True, msg='App has not started.')
     def status(self):
         headers = {'m-app-id': self._id}
         self.conn.request('GET',
                           self.base_url,
                           headers=headers)
         response = self.conn.getresponse()
+        body = json.loads(response.read().decode())
         if response.status != 200:
-            raise ClientException(
-                f'Could not get the app status.')
-        return json.loads(response.read())
+            raise AppException(f'{body["error"]}')
+        return body
 
-    @check('started', False, msg='App has not started.')
+    @permit_access_if('started', False, msg='App has not started.')
     def stop(self):
         headers = {'m-app-id': self._id}
         self.conn.request('DELETE',
                           self.base_url,
                           headers=headers)
         response = self.conn.getresponse()
+        body = json.loads(response.read().decode())
         if response.status != 200:
-            raise ClientException(
-                f'Could not stop the app {self._name}.')
+            raise AppException(f'{body["error"]}')
         self.started = False
-        return json.loads(response.read())
+        return body
 
-    @check('started', False, msg='App has already started.')
+    @permit_access_if('started', False, msg='App has already started.')
     def start(self, config=None):
         config = config or {}
-        headers = {'m-app-name': self._name, 'm-app-port': self.port}
+        headers = {'m-app-name': self._name,
+                   'm-app-port': self.port,
+                   'm-app-enable-ssl': self._enable_ssl}
+        config.update({
+            'ssl_cert': self._ssl_cert,
+            'ssl_key': self._ssl_key
+        })
         self.conn.request('POST',
                           self.base_url,
                           body=json.dumps(config),
                           headers=headers)
         response = self.conn.getresponse()
+        body = json.loads(response.read().decode())
         if response.status != 200:
-            raise ClientException(
-                f'Could not start the app {self._name}.')
+            raise AppException(f'{body["error"]}')
         self._id = response.headers['m-app-id']
         self.started = True
-        return json.loads(response.read())
+        return body
 
     @property
-    @check('started', True, msg='App has not started.')
+    @permit_access_if('started', True, msg='App has not started.')
     def running(self):
         if self.status()['status'] == 'running':
             return True
         else:
             return False
 
-    @check('started', True, msg='App has not started.')
+    @permit_access_if('started', True, msg='App has not started.')
     def handler(self, name, **kwargs):
         kwargs['conn'] = kwargs.get(
             'adapter', HTTPAdapter('0.0.0.0', self.port)).connect()
         return Handler(name, **kwargs)
 
     def __repr__(self):
-        status = 'running' if self._running else 'stopped'
-        return f'<App name={self._name} status={status}>'
+        status = 'running' if self.started else 'stopped'
+        return f'<App name={self._name} id={self._id} status={status}>'
 
     __str__ = __repr__
 

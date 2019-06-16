@@ -4,11 +4,13 @@ flask requests.
 from __future__ import absolute_import
 
 import json
-from http import HTTPStatus
 import logging
-from app.base_app import BaseApp
-from handler import HANDLER_DATA_URL, HANDLER_URL, HandlerMixin
-from flask import Flask, request, make_response, jsonify, Blueprint
+from http import HTTPStatus
+
+from flask import Blueprint, Flask, jsonify, make_response, request
+from py_mock_http.app.base_app import BaseApp
+from py_mock_http.handler import HANDLER_DATA_URL, HANDLER_URL, HandlerMixin
+
 logger = logging.getLogger(__name__)
 
 # def enforce_headers(headers):
@@ -28,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 class FlaskApp(HandlerMixin, BaseApp):
     HANDLER_LOCATION = './py_mock_http/handlers/flask/'
-    name = 'flask'
+    NAME = 'flask'
 
     def __init__(self, config):
         super().__init__()

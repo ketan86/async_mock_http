@@ -1,7 +1,12 @@
 """Abstract Base Application"""
-from exceptions import DuplicateAppError
+import logging
 from uuid import uuid4
-from handler import AbstractHandler, register_handler_routes
+
+from py_mock_http.exceptions import DuplicateAppError
+from py_mock_http.handler import AbstractHandler, register_handler_routes
+from py_mock_http.mixins import SSLMixin
+
+logger = logging.getLogger(__name__)
 
 
 class AppRegistry():
@@ -11,23 +16,25 @@ class AppRegistry():
 class MetaApp(type):
     def __new__(meta, name, bases, cls_dict):
         cls = super().__new__(meta, name, bases, cls_dict)
-        if not hasattr(AppRegistry, cls.name.lower()):
-            setattr(AppRegistry, cls.name.lower(), cls)
+        if not hasattr(AppRegistry, cls.NAME.lower()):
+            setattr(AppRegistry, cls.NAME.lower(), cls)
         else:
             raise DuplicateAppError(
-                f'App name {cls.name} is registered twice.')
+                f'App name {cls.NAME} is registered twice.')
         return cls
 
-    @register_handler_routes
+    @register_handler_routes()
     def __call__(cls, *args, **kwargs):
         return super().__call__(*args, **kwargs)
 
 
-class BaseApp(AbstractHandler, metaclass=MetaApp):
-    name = 'Base'
+class BaseApp(SSLMixin, AbstractHandler, metaclass=MetaApp):
+    NAME = 'Base'
 
-    def __init__(self):
-        self.id = '-'.join([self.name, str(uuid4())])
+    def __init__(self, config):
+        SSLMixin.__init__(self, config.get(
+            'ssl_cert', None), config.get('ssl_key', None))
+        self.id = '-'.join([self.NAME, str(uuid4())])
         self._host = '0.0.0.0'
         self._port = 8000
         self.handler_data = {}
@@ -39,3 +46,7 @@ class BaseApp(AbstractHandler, metaclass=MetaApp):
     @property
     def host(self):
         return self._host
+
+    @property
+    def name(self):
+        return self.NAME

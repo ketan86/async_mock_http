@@ -1,14 +1,16 @@
+import json
 import logging
 import os
 import re
-import json
-from exceptions import AppAttachFailed, AppDetachFailed
-from http.server import BaseHTTPRequestHandler, HTTPServer, HTTPStatus
 from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, HTTPServer, HTTPStatus
 from multiprocessing import Process, ProcessError
+
 import click
-from app.base_app import AppRegistry
-from utils import singleton
+from py_mock_http.app.base_app import AppRegistry
+from py_mock_http.exceptions import AppStartFailed, AppStopFailed
+from py_mock_http.utils import singleton
+from py_mock_http.log import configure_logging
 
 logger = logging.getLogger(__name__)
 
@@ -17,24 +19,46 @@ BASE_URL = '/mock/'
 
 @singleton
 class Server:
+    """Manages applications."""
+
     def __init__(self, config=None):
+        """Initialize the server with configurations.
+
+        :param dict config: server configurations, Defaults -> None
+        """
         self._apps = {}
-        self.config = config
+        self.config = config or {}
 
     @property
     def apps(self):
+        """Retrive running applications.
+
+        :return: list of application instances.
+        :rtype: list
+        """
         return self._apps
 
     def _is_alive(self, app):
+        """Check the application status.
+
+        :param BaseApp app: application instance.
+        :return: True if alive else False
+        :rtype: bool
+        """
         return self._apps[app].is_alive()
 
-    def __contains__(self, app):
-        return app in self._apps
+    def start(self, app, port, **kwargs):
+        """Start the application on given port.
 
-    def attach(self, app, port):
+        :param BaseApp app: application instance.
+        :param str port: port to attach to.
+        :param bool ssl: enable ssl.
+        :raises AppStartFailed: when application fails to start.
+        """
         try:
             process = Process(target=app.run, kwargs={
-                'port': port
+                'port': port,
+                'enable_ssl': kwargs.get('enable_ssl', 'False')
             }, daemon=True)
             process.start()
             # If process is alive after 5 secs, consider
@@ -42,22 +66,29 @@ class Server:
             process.join(5)
             if process.is_alive():
                 logger.info(
-                    f'Attached {app.name} app to a server with an id {app.id}.'
+                    f'{app.name} app started on port {port}.'
                 )
             else:
-                raise AppAttachFailed(f'Could not attach the app {app.name}')
+                raise AppStartFailed(
+                    f'Could not start the {app.name} app on port {port}.')
         except (ProcessError):
-            raise AppAttachFailed(f'Could not attach the app {app.name}')
+            raise AppStartFailed(
+                f'Could not start the {app.name} app on port {port}.')
         else:
             self._apps[app] = process
 
-    def detach(self, app):
+    def stop(self, app):
+        """Stop the application.
+
+        :param BaseApp app: application instance.
+        :raises AppStopFailed: when application fails to stop.
+        """
         try:
             self._apps[app].terminate()
             logger.info(
-                f'Detached {app.name} app from a server with an id {app.id}.')
+                f'{app.name} app stopped.')
         except ProcessError:
-            raise AppDetachFailed(f'Could not detach the app {app.name}')
+            raise AppStopFailed(f'Could not stop the app {app.name}')
         else:
             del self._apps[app]
 
@@ -104,18 +135,22 @@ class MockHTTPRequestHandler(BaseHTTPRequestHandler):
                         }).encode())
                     break
             else:
-                self.send_response(HTTPStatus.NOT_FOUND,
-                                   f'App not found.')
+                self.send_response(HTTPStatus.NOT_FOUND)
                 self.end_headers()
+                self.wfile.write(
+                    json.dumps({'error': 'App not found.'}).encode())
 
         else:
-            self.send_response(HTTPStatus.BAD_REQUEST,
-                               'm-app-id not found.')
+            self.send_response(HTTPStatus.BAD_REQUEST)
             self.end_headers()
+            self.wfile.write(json.dumps(
+                {'error': 'm-app-id not found.'}).encode())
 
     def create_app(self):
         app_name = self.headers.get('m-app-name')
         app_port = self.headers.get('m-app-port')
+        app_enable_ssl = self.headers.get('m-app-enable-ssl', 'False')
+
         if app_name is not None and app_port is not None:
             try:
                 app = getattr(AppRegistry, app_name.lower())(
@@ -123,15 +158,25 @@ class MockHTTPRequestHandler(BaseHTTPRequestHandler):
             except AttributeError:
                 msg = f'App {app_name} is not supported'
                 logger.exception(msg)
-                self.send_response(HTTPStatus.NOT_FOUND, msg)
+                self.send_response(HTTPStatus.NOT_FOUND)
                 self.end_headers()
+                self.wfile.write(json.dumps({'error': msg}).encode())
                 return
-            try:
-                Server().attach(app, port=int(app_port))
-            except (AppAttachFailed, OSError) as error:
+            except Exception as error:
                 logger.exception(error)
-                self.send_response(HTTPStatus.INTERNAL_SERVER_ERROR, error)
+                self.send_response(HTTPStatus.INTERNAL_SERVER_ERROR)
                 self.end_headers()
+                self.wfile.write(json.dumps({'error': str(error)}).encode())
+                return
+                
+            try:
+                Server().start(app, port=int(app_port),
+                               enable_ssl=app_enable_ssl)
+            except (AppStartFailed, OSError) as error:
+                logger.exception(error)
+                self.send_response(HTTPStatus.INTERNAL_SERVER_ERROR)
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': str(error)}).encode())
                 return
             else:
                 self.send_response(HTTPStatus.OK)
@@ -140,9 +185,10 @@ class MockHTTPRequestHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps(
                     {'msg': f'{app.name} app created.'}).encode())
         else:
-            self.send_response(HTTPStatus.BAD_REQUEST,
-                               'm-app-name and m-app-port not found.')
+            self.send_response(HTTPStatus.BAD_REQUEST)
             self.end_headers()
+            self.wfile.write(json.dumps(
+                {'error': 'm-app-name and m-app-port not found.'}).encode())
 
     def delete_app(self):
         app_id = self.headers.get('m-app-id')
@@ -151,60 +197,45 @@ class MockHTTPRequestHandler(BaseHTTPRequestHandler):
             for app in Server().apps:
                 if app.id == app_id:
                     try:
-                        Server().detach(app)
-                    except AppDetachFailed as error:
-                        self.send_response(
-                            HTTPStatus.INTERNAL_SERVER_ERROR, error)
+                        Server().stop(app)
+                    except AppStopFailed as error:
+                        self.send_response(HTTPStatus.INTERNAL_SERVER_ERROR)
                         self.end_headers()
-
+                        self.wfile.write(
+                            json.dumps({'error': str(error)}).encode())
                     else:
-                        self.send_response(
-                            HTTPStatus.OK, 'App {} detached from the server.'.format(
-                                app.name))
+                        self.send_response(HTTPStatus.OK)
                         self.end_headers()
+                        self.wfile.write(json.dumps(
+                            {'msg': 'App {} stopped.'.format(
+                                    app.name)}).encode())
 
                     break
             else:
-                self.send_response(
-                    HTTPStatus.NOT_FOUND, 'App not found.')
+                self.send_response(HTTPStatus.NOT_FOUND)
                 self.end_headers()
+                self.wfile.write(json.dumps(
+                    {'error': 'App not found.'}).encode())
 
         else:
-            self.send_response(HTTPStatus.BAD_REQUEST,
-                               'm-app-id not found.')
+            self.send_response(HTTPStatus.BAD_REQUEST)
             self.end_headers()
-
-
-def configure_logging(**kwargs):
-    log_level = kwargs['log_level']
-    level = getattr(logging, log_level)
-    handler = logging.FileHandler('./server.log')
-    formatter = logging.Formatter(
-        '[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s')
-    handler.setFormatter(formatter)
-    logging.getLogger().handlers.append(handler)
-    logging.getLogger().setLevel(level)
+            self.wfile.write(json.dumps(
+                {'error': 'm-app-id not found.'}).encode())
 
 
 @click.command()
-@click.option('--debug', default=True, type=click.BOOL)
 @click.option('--config', default=None, type=click.STRING)
 @click.argument('host', default='0.0.0.0', type=click.STRING)
 @click.argument('port', default=8090, type=click.INT)
-def run(host, port, config, debug):
-    if debug:
-        configure_logging(log_level='DEBUG')
+def run(host, port, config):
     if config:
         Server(json.loads(config))
-
     server = HTTPServer((host, port), MockHTTPRequestHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        logger.info('KeyboardInterrupt. Detaching all apps.')
-        [Server().detach(app) for app in list(Server().apps)]
+        logger.info('KeyboardInterrupt. Stopping all apps.')
+        for app in list(Server().apps):
+            Server().stop(app)
         server.server_close()
-
-
-if __name__ == "__main__":
-    run()

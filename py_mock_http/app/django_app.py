@@ -3,6 +3,7 @@ django requests.
 """
 from __future__ import absolute_import
 
+import ast
 import json
 import logging
 import sys
@@ -15,8 +16,8 @@ from django.core.management import execute_from_command_line
 from django.http import HttpResponse
 from django.urls import path
 
-from app.base_app import BaseApp
-from handler import HANDLER_DATA_URL, HANDLER_URL, HandlerMixin
+from py_mock_http.app.base_app import BaseApp
+from py_mock_http.handler import HandlerMixin, HANDLER_DATA_URL, HANDLER_URL
 
 logger = logging.getLogger(__name__)
 
@@ -45,14 +46,15 @@ def enforce_headers(headers):
 
 
 class DjangoApp(HandlerMixin, BaseApp):
-    HANDLER_LOCATION = './py_mock_http/handlers/django/'
-    name = 'django'
+    DJANGO_HANDLERS_LOCATION = './py_mock_http/handlers/django/'
+    CERT_STORAGE_LOCATION = './py_mock_http/certs/django/'
+    NAME = 'django'
 
     def __init__(self, config):
-        super().__init__()
-        settings.configure(ALLOWED_HOSTS=['*'],
-                           ROOT_URLCONF='app.django_app',
-                           DEBUG=True,
+        super().__init__(config)
+        settings.configure(ALLOWED_HOSTS=config.get('ALLOWED_HOSTS', ['*']),
+                           ROOT_URLCONF='py_mock_http.app.django_app',
+                           DEBUG=config.get('ALLOWED_HOSTS', True),
                            **config)
 
     def reg_request_middleware(self):
@@ -67,18 +69,24 @@ class DjangoApp(HandlerMixin, BaseApp):
             return middleware
 
         settings.MIDDLEWARE = [
-            'app.django_app.request_middleware']
+            'py_mock_http.app.django_app.request_middleware']
 
     def reg_handler_route(self):
 
         @enforce_headers(['m-handler-name'])
         def handle_handler_data(request):
+            self.HANDLER_LOCATION = self.DJANGO_HANDLERS_LOCATION + \
+                f'/{self._port}/'
+
             handler_name = request.headers['m-handler-name']
             urlpatterns_name = request.headers.get(
                 'm-urlpatterns-name', None) or 'urlpatterns'
+
             try:
+                save_temp = True if request.method == "DELETE" else False
                 module = self.import_handler(handler_name,
-                                             request.body.decode())
+                                             request.body.decode(),
+                                             save_temp=save_temp)
                 paths = getattr(module, urlpatterns_name)
             except Exception:
                 return HttpResponse(
@@ -94,8 +102,9 @@ class DjangoApp(HandlerMixin, BaseApp):
                             break
                     else:
                         urlpatterns.append(path)
+
                 return HttpResponse(
-                    json.dumps({'msg': 'View registered.'}),
+                    json.dumps({'msg': 'View(s) registered/overridden.'}),
                     status=HTTPStatus.OK)
 
             elif request.method == "DELETE":
@@ -109,16 +118,17 @@ class DjangoApp(HandlerMixin, BaseApp):
                         not_deleted_paths.append(str(path.pattern))
                 if not_deleted_paths:
                     return HttpResponse(
-                        json.dumps({'msg': 'View unregistered.',
-                                    'un_registered_views': str(
+                        json.dumps({'msg': 'View(s) unregistered.',
+                                    'de-registered_views': str(
                                         not_deleted_paths)
                                     }),
                         status=HTTPStatus.OK)
                 return HttpResponse(
-                    json.dumps({'msg': 'View unregistered.'}),
+                    json.dumps({'msg': 'View(s) unregistered.'}),
                     status=HTTPStatus.OK)
             else:
                 return HttpResponse(status=HTTPStatus.METHOD_NOT_ALLOWED)
+
         urlpatterns.append(path(HANDLER_URL[1:], handle_handler_data))
 
     def reg_handler_data_route(self):
@@ -143,16 +153,36 @@ class DjangoApp(HandlerMixin, BaseApp):
                 else:
                     return HttpResponse(
                         json.dumps(
-                            {'msg': 'View data not found for a given url.'}),
+                            {'msg': f'View data not found '
+                             f'for \'{url}\' route.'}),
                         status=HTTPStatus.NOT_FOUND)
             else:
                 return HttpResponse(status=HTTPStatus.METHOD_NOT_ALLOWED)
+
         urlpatterns.append(path(HANDLER_DATA_URL[1:], handle_data))
 
-    def run(self, **kwargs):
+    def _derive_run_cmd(self, **kwargs):
+        run_cmd = ['manage.py']
+
         if 'host' in kwargs:
             self._host = kwargs['host']
-        execute_from_command_line(
-            ['manage.py', 'runserver', '0.0.0.0:' +
-                str(kwargs['port']), '--noreload']
-        )
+        self._port = kwargs['port']
+
+        if ast.literal_eval(kwargs['enable_ssl']):
+            run_cmd.append('runsslserver')
+            settings.INSTALLED_APPS = ('sslserver',)
+        else:
+            run_cmd.append('runserver')
+
+        run_cmd.append(f'{self._host}:{self._port}')
+        run_cmd.append(kwargs.get('reload', '--noreload'))
+
+        if ast.literal_eval(kwargs['enable_ssl']):
+            run_cmd.extend(
+                ['--certificate', self.ssl_cert, '--key', self.ssl_key])
+
+        return run_cmd
+
+    def run(self, **kwargs):
+        run_cmd = self._derive_run_cmd(**kwargs)
+        execute_from_command_line(run_cmd)

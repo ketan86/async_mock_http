@@ -3,16 +3,17 @@ sanic requests.
 """
 from __future__ import absolute_import
 
+import ast
 import json
-from http import HTTPStatus
 import logging
 from functools import wraps
-from app.base_app import BaseApp
-from handler import HANDLER_DATA_URL, HANDLER_URL, HandlerMixin
-from sanic import Sanic, request, response, Blueprint
-from sanic.exceptions import SanicException
-from sanic.router import RouteExists
+from http import HTTPStatus
 
+from py_mock_http.app.base_app import BaseApp
+from py_mock_http.handler import HANDLER_DATA_URL, HANDLER_URL, HandlerMixin
+from sanic import Blueprint, Sanic, request, response
+from sanic.exceptions import SanicException
+from sanic.router import RouteExists, RouteDoesNotExist
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +33,13 @@ def enforce_headers(headers):
 
 
 class SanicApp(HandlerMixin, BaseApp):
-    HANDLER_LOCATION = './py_mock_http/handlers/sanic/'
-    name = 'sanic'
+    SANIC_HANDLERS_LOCATION = './py_mock_http/handlers/sanic/'
+    CERT_STORAGE_LOCATION = './py_mock_http/certs/sanic/'
+
+    NAME = 'sanic'
 
     def __init__(self, config):
-        super().__init__()
+        super().__init__(config)
         self.app = Sanic()
         self.app.config.update(**config)
 
@@ -45,13 +48,32 @@ class SanicApp(HandlerMixin, BaseApp):
         def request_middleware(request):
             request['handler_data'] = self.handler_data.get(
                 request.raw_url.decode(), {})
-            logger.info(
-                f'Setting handler data on {request.raw_url.decode()} route.')
+
+    def _remove_routes(self, bp):
+        # clear all routes from the app.
+        for route in self.app.blueprints[bp.name].routes:
+            # if strict slash enforced, only delete the given route,
+            # otherwise, delete one with slash also.
+            if route.strict_slashes:
+                routes_to_delete = [route.uri]
+            else:
+                routes_to_delete = [route.uri, route.uri + '/']
+            for route_uri in routes_to_delete:
+                if route_uri in self.app.router.routes_all:
+                    logger.debug(f'Removing {route_uri} route from the app.')
+                    self.app.remove_route(route_uri)
+
+        # clear routes from blueprint
+        self.app.blueprints[bp.name].routes.clear()
+        # delete the blueprint
+        del self.app.blueprints[bp.name]
 
     def reg_handler_route(self):
         @self.app.route(HANDLER_URL, methods=['POST'])
         @enforce_headers(['m-handler-name'])
         def add_blueprint(request):
+            self.HANDLER_LOCATION = self.SANIC_HANDLERS_LOCATION + \
+                f'/{self._port}/'
             handler_name = request.headers['m-handler-name']
             blueprint_name = request.headers.get(
                 'm-blueprint-name', None) or 'bp'
@@ -60,69 +82,72 @@ class SanicApp(HandlerMixin, BaseApp):
                                              request.body.decode())
                 bp = getattr(module, blueprint_name)
             except (ImportError, AttributeError) as error:
-                return response.json(
-                    {'error': str(error)},
-                    status=HTTPStatus.BAD_REQUEST)
+                logger.exception(error)
+                return response.json({'error': str(error)},
+                                     status=HTTPStatus.BAD_REQUEST)
+
             try:
                 self.app.blueprint(bp)
-            except (AssertionError, RouteExists) as error:
-                _bp = self.app.blueprints[bp.name]
-                _bp.routes.clear()
-                self.app.blueprint(bp)
-            except SanicException as error:
-                return response.json(
-                    {'error': str(error)},
-                    status=HTTPStatus.CONFLICT)
-            return response.json(
-                {'msg': 'Blueprint registered.'},
-                status=HTTPStatus.OK)
+            except (AssertionError, RouteExists,
+                    RouteDoesNotExist, SanicException) as error:
+                logger.exception(error)
+                return response.json({'error': str(error)},
+                                     status=HTTPStatus.CONFLICT)
+
+            logger.info('Blueprint successfully registered.')
+            return response.json({'msg': 'Blueprint registered.'},
+                                 status=HTTPStatus.OK)
 
         @self.app.route(HANDLER_URL, methods=['DELETE'])
         @enforce_headers(['m-handler-name'])
         def remove_blueprint(request):
+            self.HANDLER_LOCATION = self.SANIC_HANDLERS_LOCATION + \
+                f'/{self._port}/'
+
             handler_name = request.headers['m-handler-name']
             blueprint_name = request.headers.get(
                 'm-blueprint-name', None) or 'bp'
             try:
                 module = self.import_handler(handler_name,
-                                             request.body.decode())
+                                             request.body.decode(),
+                                             save_temp=True)
                 bp = getattr(module, blueprint_name)
             except (ImportError, AttributeError) as error:
-                return response.json(
-                    {'error': str(error)},
-                    status=HTTPStatus.BAD_REQUEST)
+                logger.exception(error)
+                return response.json({'error': str(error)},
+                                     status=HTTPStatus.BAD_REQUEST)
             try:
-                _bp = self.app.blueprints[bp.name]
-                _bp.routes.clear()
-                del self.app.blueprints[bp.name]
-            except SanicException as error:
+                self._remove_routes(bp)
+            except (KeyError, RouteExists, RouteDoesNotExist) as error:
+                logger.exception(error)
                 return response.json(
-                    {'error': str(error)},
+                    {'error': f'Blueprint not found with the name {bp.name}'},
                     status=HTTPStatus.CONFLICT)
-            return response.json(
-                {'msg': 'Blueprint unregistered.'},
-                status=HTTPStatus.OK)
+            except SanicException as error:
+                logger.exception(error)
+                return response.json({'error': str(error)},
+                                     status=HTTPStatus.CONFLICT)
+
+            logger.info('Blueprint successfully de-registered.')
+            return response.json({'msg': 'Blueprint unregistered.'},
+                                 status=HTTPStatus.OK)
 
     def reg_handler_data_route(self):
         @self.app.route(HANDLER_DATA_URL, methods=['POST'])
         @enforce_headers(['m-handler-url'])
         def set_blueprint_data(request):
             url = request.headers['m-handler-url']
-            for bp in self.app.blueprints:
-                logger.debug(
-                    f'Blueprint {bp} routes {self.app.blueprints[bp].routes}'
-                )
-                for route in self.app.blueprints[bp].routes:
-                    if url == route.uri:
-                        self.handler_data[url] = json.loads(
-                            request.body.decode())
-                        return response.json(
-                            {'msg': f'Data registered for \'{url}\' route.'},
-                            status=HTTPStatus.OK)
+            print(self.app.router.routes_all.keys())
+            for route in self.app.router.routes_all.keys():
+                if url == route:
+                    self.handler_data[url] = json.loads(request.body.decode())
+                    msg = f'Data registered for \'{url}\' route.'
+                    logger.info(msg)
+                    return response.json({'msg': msg}, status=HTTPStatus.OK)
 
-            return response.json(
-                {'msg': 'Route not found.'},
-                status=HTTPStatus.NOT_FOUND)
+            msg = 'Route not found.'
+            logger.info(msg)
+            return response.json({'msg': msg}, status=HTTPStatus.NOT_FOUND)
 
         @self.app.route(HANDLER_DATA_URL, methods=['DELETE'])
         @enforce_headers(['m-handler-url'])
@@ -130,17 +155,19 @@ class SanicApp(HandlerMixin, BaseApp):
             url = request.headers['m-handler-url']
             if url in self.handler_data:
                 del self.handler_data[url]
-                return response.json(
-                    {'msg': 'Blueprint data deleted.'},
-                    status=HTTPStatus.OK)
+                msg = 'Blueprint data deleted.'
+                return response.json({'msg': msg}, status=HTTPStatus.OK)
             else:
-                return response.json(
-                    {'msg': 'Blueprint data not found for a given url.'},
-                    status=HTTPStatus.NOT_FOUND
-                )
+                msg = 'Blueprint data not found for \'{url}\' route.'
+                return response.json({'msg': msg}, status=HTTPStatus.NOT_FOUND)
 
     def run(self, **kwargs):
         if 'host' in kwargs:
             self._host = kwargs['host']
+
+        if ast.literal_eval(kwargs['enable_ssl']):
+            kwargs.update(
+                {'ssl': {'cert': self.ssl_cert, 'key': self.ssl_key}})
+
         self._port = kwargs['port']
         self.app.run(**kwargs)

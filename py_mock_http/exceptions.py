@@ -18,6 +18,18 @@ class ClientException(PyMockHttpException):
     """Base client exception"""
 
 
+class AppException(ClientException):
+    """Raised when app specific exceptions occur"""
+
+
+class HandlerException(ClientException):
+    """Raised when handler specific exceptions occur"""
+
+
+class AccessNotAllowed(Exception):
+    """Raised when method access not allowed"""
+
+
 class ConnectError(ClientException):
     """Raised when client can not connect to a server"""
 
@@ -34,12 +46,12 @@ class AppNotSupported(ServerException):
     """Raised when application requested by client is not supported"""
 
 
-class AppAttachFailed(ServerException):
-    """Raised when application could not attach to the server"""
+class AppStartFailed(ServerException):
+    """Raised when application could not start"""
 
 
-class AppDetachFailed(ServerException):
-    """Raised when application could not detach from the server"""
+class AppStopFailed(ServerException):
+    """Raised when application could not stop"""
 
 
 class InvalidAppError(ServerException):
