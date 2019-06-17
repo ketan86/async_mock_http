@@ -10,10 +10,6 @@ class ConfigException(PyMockHttpException):
     """Base config exception"""
 
 
-class EnvNotSetError(ConfigException):
-    """Raised when config environment value is not set"""
-
-
 class ClientException(PyMockHttpException):
     """Base client exception"""
 
@@ -26,8 +22,8 @@ class HandlerException(ClientException):
     """Raised when handler specific exceptions occur"""
 
 
-class AccessNotAllowed(Exception):
-    """Raised when method access not allowed"""
+class AccessDenied(Exception):
+    """Raised when method access is denied."""
 
 
 class ConnectError(ClientException):

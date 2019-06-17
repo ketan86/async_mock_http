@@ -30,15 +30,15 @@ DEFAULT_LOGGING = {
             'handlers': ['console'],
             'level': 'DEBUG',
         },
-        'py_mock_http.client': {
+        'httpmocker.client': {
             'level': 'INFO',
             'handlers': ['console']
         },
-        'py_mock_http.server': {
+        'httpmocker.server': {
             'level': 'DEBUG',
             'handlers': ['rotate_file']
         },
-        'py_mock_http.app': {
+        'httpmocker.app': {
             'level': 'DEBUG',
             'handlers': ['rotate_file']
         }

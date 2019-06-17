@@ -4,7 +4,7 @@ import os
 
 class SSLMixin(object):
     SSL = namedtuple('SSL', 'cert key')
-    CERT_STORAGE_LOCATION = './py_mock_http/certs/'
+    CERT_STORAGE_LOCATION = './httpmocker/certs/'
 
     def __init__(self, cert, key):
         self.ssl_cert = None

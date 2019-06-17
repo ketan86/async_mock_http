@@ -1,6 +1,10 @@
 """Collection of utilities"""
 import functools
-from py_mock_http.exceptions import AccessNotAllowed
+import importlib.util
+import subprocess
+import sys
+
+from httpmocker.exceptions import AccessDenied
 
 
 def singleton(cls):
@@ -30,7 +34,26 @@ def permit_access_if(attr, value, msg):
     def decorator(func):
         def wrapper(self, *args, **kwargs):
             if getattr(self, attr) != value:
-                raise AccessNotAllowed(msg)
+                raise AccessDenied(msg)
             return func(self, *args, **kwargs)
         return wrapper
     return decorator
+
+
+# class AutoInstall:
+#     _loaded = set()
+
+#     @classmethod
+#     def find_spec(cls, name, path, target=None):
+#         if path is None and name not in cls._loaded:
+#             cls._loaded.add(name)
+#             print(name)
+#             try:
+#                 out = subprocess.check_output([
+#                     sys.executable, '-m', 'pip', 'install', name
+#                 ], stdout=subprocess.DEVNULL,
+#                     stderr=subprocess.DEVNULL)
+#                 return importlib.util.find_spec(name)
+#             except Exception as error:
+#                 pass
+#         return None

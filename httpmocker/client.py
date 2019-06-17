@@ -7,15 +7,15 @@ import importlib
 import json
 import abc
 from http.client import HTTPConnection, HTTPSConnection, HTTPException
-from py_mock_http.exceptions import (ClientException, ConnectError,
-                                     AppException, HandlerException)
+from httpmocker.exceptions import (ClientException, ConnectError,
+                                   AppException, HandlerException)
 
-from py_mock_http.utils import permit_access_if
+from httpmocker.utils import permit_access_if
 
 logger = logging.getLogger(__name__)
 
 
-def mock_app(app_type, port, **kwargs):
+def mock_via(app_type, port, **kwargs):
     with Client() as client:
         app = client.app(app_type, port, **kwargs)
         app.start()
@@ -259,7 +259,7 @@ class App:
 
 
 class Client:
-    def __init__(self, adapter=HTTPAdapter('0.0.0.0', 8090)):
+    def __init__(self, adapter=HTTPAdapter('0.0.0.0', 8080)):
         self.adapter = adapter
         self.base_url = '/mock/'
 

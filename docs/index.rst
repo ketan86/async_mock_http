@@ -1,5 +1,5 @@
 ================================================================================
-Welcome to py_mock_http's documentation!
+Welcome to httpmocker's documentation!
 ================================================================================
 
 .. include:: warning.rst

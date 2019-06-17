@@ -12,4 +12,4 @@
 You are seeing this description because the package owner is lazy and did not
 provide a detailed description for its project ;-)
 
-Since you are here, please help with the py_mock_http's documentation!
+Since you are here, please help with the httpmocker's documentation!

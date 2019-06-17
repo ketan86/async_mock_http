@@ -37,14 +37,14 @@ class AbstractHandler:
 
 
 class HandlerMixin:
-    HANDLER_LOCATION = './py_mock_http/handlers/'
+    HANDLER_ROOT = './httpmocker/handlers/'
 
     @contextmanager
     def save_handler(self, name, data, temp=False):
         if temp:
-            location = self.HANDLER_LOCATION + '/tmp/'
+            location = self.HANDLER_ROOT + '/tmp/'
         else:
-            location = self.HANDLER_LOCATION
+            location = self.HANDLER_ROOT
         file_location = location + '/' + name + '.py'
         if not os.path.exists(location):
             os.makedirs(location, exist_ok=True)

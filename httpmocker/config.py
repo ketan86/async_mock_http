@@ -1,23 +1,21 @@
-"""Server configurations.
+"""Mock server configurations.
 """
 import configparser
 import os
 from collections import abc
-from .exceptions import EnvNotSetError
 
-PREFIX = "PY_MOCK_HTTP_"
-CONFIG_FILE = PREFIX + "CONFIG"
+from httpmocker.utils import singleton
 
+PREFIX = "HTTP_MOCKER_"
 
 DEFAULT_CONFIG = {
     "HOST": "0.0.0.0",
-    "HTTP_PORT": "8888",
+    "HTTP_PORT": "8080",
     "HTTPS_PORT": "443",
-    "REALOAD_CONFIG": False,
-    "CERTIFICATE_FILE": None,
-    "CERTIFICATE_KEY": None,
-    "SERVER_REQUEST_TIMEOUT": 10,
-    "HANDLER_LOCATION": "./py_mock_http/handler"
+    "SSL_CERT": None,
+    "SSL_KEY": None,
+    "REQUEST_TIMEOUT": 10,
+    "HANDLER_STORAGE": "./httpmocker/handlers"
 }
 
 
@@ -31,26 +29,18 @@ def _get_bool(val):
         raise ValueError("invalid bool value %r" % (val,))
 
 
-def load_from_file(path, section="server"):
-    config = configparser.ConfigParser()
-    config.optionxform = str
-    config.read(path)
-    return Config(config[section])
+# def load_from_file(path, section="server"):
+#     config = configparser.ConfigParser()
+#     config.optionxform = str
+#     config.read(path)
+#     return Config(config[section])
 
 
-def load_from_string(config_str, section="server"):
-    config = configparser.ConfigParser()
-    config.optionxform = str
-    config.read_string(config_str)
-    return Config(config[section])
-
-
-def load_from_env_file():
-    if CONFIG_FILE in os.environ:
-        with open(os.environ[CONFIG_FILE], 'r') as fh:
-            return load_from_string(fh.read())
-    else:
-        raise EnvNotSetError('PY_MOCK_HTTP_CONFIG not set.')
+# def load_from_string(config_str, section="server"):
+#     config = configparser.ConfigParser()
+#     config.optionxform = str
+#     config.read_string(config_str)
+#     return Config(config[section])
 
 
 def load_from_env_vars(prefix=PREFIX):
@@ -71,6 +61,7 @@ def load_from_env_vars(prefix=PREFIX):
     return config
 
 
+@singleton
 class Config(abc.MutableMapping):
     def __init__(self, config):
         config = config or {}

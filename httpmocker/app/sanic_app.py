@@ -9,8 +9,8 @@ import logging
 from functools import wraps
 from http import HTTPStatus
 
-from py_mock_http.app.base_app import BaseApp
-from py_mock_http.handler import HANDLER_DATA_URL, HANDLER_URL, HandlerMixin
+from httpmocker.app.base_app import BaseApp
+from httpmocker.handler import HANDLER_DATA_URL, HANDLER_URL, HandlerMixin
 from sanic import Blueprint, Sanic, request, response
 from sanic.exceptions import SanicException
 from sanic.router import RouteExists, RouteDoesNotExist
@@ -33,8 +33,8 @@ def enforce_headers(headers):
 
 
 class SanicApp(HandlerMixin, BaseApp):
-    SANIC_HANDLERS_LOCATION = './py_mock_http/handlers/sanic/'
-    CERT_STORAGE_LOCATION = './py_mock_http/certs/sanic/'
+    SANIC_HANDLERS_LOCATION = './httpmocker/handlers/sanic/'
+    CERT_STORAGE_LOCATION = './httpmocker/certs/sanic/'
 
     NAME = 'sanic'
 
@@ -72,6 +72,8 @@ class SanicApp(HandlerMixin, BaseApp):
         @self.app.route(HANDLER_URL, methods=['POST'])
         @enforce_headers(['m-handler-name'])
         def add_blueprint(request):
+            import sys
+            print(sys.meta_path)
             self.HANDLER_LOCATION = self.SANIC_HANDLERS_LOCATION + \
                 f'/{self._port}/'
             handler_name = request.headers['m-handler-name']

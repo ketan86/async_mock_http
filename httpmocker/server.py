@@ -7,10 +7,11 @@ from http.server import BaseHTTPRequestHandler, HTTPServer, HTTPStatus
 from multiprocessing import Process, ProcessError
 
 import click
-from py_mock_http.app.base_app import AppRegistry
-from py_mock_http.exceptions import AppStartFailed, AppStopFailed
-from py_mock_http.utils import singleton
-from py_mock_http.log import configure_logging
+from httpmocker.app.base_app import AppRegistry
+from httpmocker.exceptions import AppStartFailed, AppStopFailed
+from httpmocker.utils import singleton
+from httpmocker.log import configure_logging
+from httpmocker.config import load_from_env_vars
 
 logger = logging.getLogger(__name__)
 
@@ -21,13 +22,11 @@ BASE_URL = '/mock/'
 class Server:
     """Manages applications."""
 
-    def __init__(self, config=None):
-        """Initialize the server with configurations.
-
-        :param dict config: server configurations, Defaults -> None
+    def __init__(self):
+        """Initialize the server.
         """
         self._apps = {}
-        self.config = config or {}
+        self.config = load_from_env_vars()
 
     @property
     def apps(self):
@@ -168,7 +167,7 @@ class MockHTTPRequestHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({'error': str(error)}).encode())
                 return
-                
+
             try:
                 Server().start(app, port=int(app_port),
                                enable_ssl=app_enable_ssl)
@@ -225,12 +224,9 @@ class MockHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 @click.command()
-@click.option('--config', default=None, type=click.STRING)
 @click.argument('host', default='0.0.0.0', type=click.STRING)
-@click.argument('port', default=8090, type=click.INT)
-def run(host, port, config):
-    if config:
-        Server(json.loads(config))
+@click.argument('port', default=8080, type=click.INT)
+def run(host, port):
     server = HTTPServer((host, port), MockHTTPRequestHandler)
     try:
         server.serve_forever()
@@ -239,3 +235,7 @@ def run(host, port, config):
         for app in list(Server().apps):
             Server().stop(app)
         server.server_close()
+
+
+if __name__ == '__main__':
+    run()

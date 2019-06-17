@@ -51,10 +51,10 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = 'py_mock_http'
+project = 'httpmocker'
 project_title = project.title()
 author = 'Ketan Patel'
-copyright = '2016, %s' % author
+copyright = '2019, %s' % author
 
 
 # The version info for the project you're documenting, acts as replacement for

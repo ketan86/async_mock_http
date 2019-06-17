@@ -2,9 +2,9 @@
 import logging
 from uuid import uuid4
 
-from py_mock_http.exceptions import DuplicateAppError
-from py_mock_http.handler import AbstractHandler, register_handler_routes
-from py_mock_http.mixins import SSLMixin
+from httpmocker.exceptions import DuplicateAppError
+from httpmocker.handler import AbstractHandler, register_handler_routes
+from httpmocker.mixins import SSLMixin
 
 logger = logging.getLogger(__name__)
 

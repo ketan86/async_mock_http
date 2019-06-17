@@ -2,7 +2,7 @@
 API Reference
 =============
 
-API documentation for the py_mock_http module.
+API documentation for the httpmocker module.
 
-.. automodule:: py_mock_http
+.. automodule:: httpmocker
    :members:

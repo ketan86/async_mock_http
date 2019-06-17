@@ -6,7 +6,7 @@ def get_parser():
     """
     Creates a new argument parser.
     """
-    parser = argparse.ArgumentParser("py_mock_http")
+    parser = argparse.ArgumentParser("httpmocker")
     version = "%(prog)s " + __version__
     parser.add_argument("--version", "-v", action="version", version=version)
     return parser
@@ -26,7 +26,7 @@ def main(args=None):
     args = parser.parse_args(args)
 
     # Put your main script logic here
-    print("No action defined for py_mock_http module!")
+    print("No action defined for httpmocker module!")
 
 
 if __name__ == "__main__":

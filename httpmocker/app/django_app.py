@@ -16,8 +16,8 @@ from django.core.management import execute_from_command_line
 from django.http import HttpResponse
 from django.urls import path
 
-from py_mock_http.app.base_app import BaseApp
-from py_mock_http.handler import HandlerMixin, HANDLER_DATA_URL, HANDLER_URL
+from httpmocker.app.base_app import BaseApp
+from httpmocker.handler import HandlerMixin, HANDLER_DATA_URL, HANDLER_URL
 
 logger = logging.getLogger(__name__)
 
@@ -46,14 +46,14 @@ def enforce_headers(headers):
 
 
 class DjangoApp(HandlerMixin, BaseApp):
-    DJANGO_HANDLERS_LOCATION = './py_mock_http/handlers/django/'
-    CERT_STORAGE_LOCATION = './py_mock_http/certs/django/'
+    DJANGO_HANDLERS_LOCATION = './httpmocker/handlers/django/'
+    CERT_STORAGE_LOCATION = './httpmocker/certs/django/'
     NAME = 'django'
 
     def __init__(self, config):
         super().__init__(config)
         settings.configure(ALLOWED_HOSTS=config.get('ALLOWED_HOSTS', ['*']),
-                           ROOT_URLCONF='py_mock_http.app.django_app',
+                           ROOT_URLCONF='httpmocker.app.django_app',
                            DEBUG=config.get('ALLOWED_HOSTS', True),
                            **config)
 
@@ -69,7 +69,7 @@ class DjangoApp(HandlerMixin, BaseApp):
             return middleware
 
         settings.MIDDLEWARE = [
-            'py_mock_http.app.django_app.request_middleware']
+            'httpmocker.app.django_app.request_middleware']
 
     def reg_handler_route(self):
 
