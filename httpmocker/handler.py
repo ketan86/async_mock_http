@@ -1,8 +1,10 @@
 import abc
 import importlib
-from functools import wraps
 import os
 from contextlib import contextmanager
+from functools import wraps
+
+from httpmocker.config import get_config
 
 HANDLER_URL = '/mock/app/handler/'
 HANDLER_DATA_URL = '/mock/app/handler/data/'
@@ -37,14 +39,14 @@ class AbstractHandler:
 
 
 class HandlerMixin:
-    HANDLER_ROOT = './httpmocker/handlers/'
 
     @contextmanager
     def save_handler(self, name, data, temp=False):
+        storage_root = self.get_handler_storage_root()
         if temp:
-            location = self.HANDLER_ROOT + '/tmp/'
+            location = storage_root + '/tmp/'
         else:
-            location = self.HANDLER_ROOT
+            location = storage_root
         file_location = location + '/' + name + '.py'
         if not os.path.exists(location):
             os.makedirs(location, exist_ok=True)

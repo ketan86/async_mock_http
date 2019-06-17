@@ -11,7 +11,7 @@ from httpmocker.app.base_app import AppRegistry
 from httpmocker.exceptions import AppStartFailed, AppStopFailed
 from httpmocker.utils import singleton
 from httpmocker.log import configure_logging
-from httpmocker.config import load_from_env_vars
+from httpmocker.config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +22,13 @@ BASE_URL = '/mock/'
 class Server:
     """Manages applications."""
 
-    def __init__(self):
-        """Initialize the server.
+    def __init__(self, config=None):
+        """Initialize the server with configurations.
+
+        :param dict config: server configurations, Defaults -> None
         """
         self._apps = {}
-        self.config = load_from_env_vars()
+        self.config = config or {}
 
     @property
     def apps(self):
@@ -227,14 +229,20 @@ class MockHTTPRequestHandler(BaseHTTPRequestHandler):
 @click.argument('host', default='0.0.0.0', type=click.STRING)
 @click.argument('port', default=8080, type=click.INT)
 def run(host, port):
-    server = HTTPServer((host, port), MockHTTPRequestHandler)
+    config = get_config()
+    host = config.get('HOST', host)
+    port = int(config.get('PORT', port))
+
+    server = Server(config)
+
+    http_server = HTTPServer((host, port), MockHTTPRequestHandler)
     try:
-        server.serve_forever()
+        http_server.serve_forever()
     except KeyboardInterrupt:
         logger.info('KeyboardInterrupt. Stopping all apps.')
-        for app in list(Server().apps):
-            Server().stop(app)
-        server.server_close()
+        for app in list(server.apps):
+            server.stop(app)
+        http_server.server_close()
 
 
 if __name__ == '__main__':

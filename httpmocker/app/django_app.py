@@ -17,7 +17,7 @@ from django.http import HttpResponse
 from django.urls import path
 
 from httpmocker.app.base_app import BaseApp
-from httpmocker.handler import HandlerMixin, HANDLER_DATA_URL, HANDLER_URL
+from httpmocker.handler import HANDLER_DATA_URL, HANDLER_URL, HandlerMixin
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +46,6 @@ def enforce_headers(headers):
 
 
 class DjangoApp(HandlerMixin, BaseApp):
-    DJANGO_HANDLERS_LOCATION = './httpmocker/handlers/django/'
-    CERT_STORAGE_LOCATION = './httpmocker/certs/django/'
     NAME = 'django'
 
     def __init__(self, config):
@@ -75,9 +73,6 @@ class DjangoApp(HandlerMixin, BaseApp):
 
         @enforce_headers(['m-handler-name'])
         def handle_handler_data(request):
-            self.HANDLER_LOCATION = self.DJANGO_HANDLERS_LOCATION + \
-                f'/{self._port}/'
-
             handler_name = request.headers['m-handler-name']
             urlpatterns_name = request.headers.get(
                 'm-urlpatterns-name', None) or 'urlpatterns'

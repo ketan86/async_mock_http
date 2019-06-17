@@ -31,7 +31,6 @@ def enforce_headers(headers):
 
 
 class FlaskApp(HandlerMixin, BaseApp):
-    HANDLER_LOCATION = './httpmocker/handlers/flask/'
     NAME = 'flask'
 
     def __init__(self, config):

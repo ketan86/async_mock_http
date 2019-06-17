@@ -1,20 +1,23 @@
 from collections import namedtuple
 import os
 
+from httpmocker.config import get_config
+
 
 class SSLMixin(object):
-    SSL = namedtuple('SSL', 'cert key')
-    CERT_STORAGE_LOCATION = './httpmocker/certs/'
 
-    def __init__(self, cert, key):
-        self.ssl_cert = None
-        self.ssl_key = None
+    def save_cert(self, cert, key):
+        # get storage location
+        storage_root = self.get_cert_storage_root()
 
-        if cert and key:
-            os.makedirs(self.CERT_STORAGE_LOCATION, exist_ok=True)
-            self.ssl_cert = f'{self.CERT_STORAGE_LOCATION}/server.crt'
-            self.ssl_key = f'{self.CERT_STORAGE_LOCATION}/server.key'
-            with open(self.ssl_cert, 'w') as f:
-                f.write(cert)
-            with open(self.ssl_key, 'w') as f:
-                f.write(key)
+        # create storage root folder if does not exist
+        os.makedirs(storage_root, exist_ok=True)
+
+        self.ssl_cert = f'{storage_root}/app.crt'
+        self.ssl_key = f'{storage_root}/app.key'
+
+        # save cert
+        with open(self.ssl_cert, 'w') as f:
+            f.write(cert)
+        with open(self.ssl_key, 'w') as f:
+            f.write(key)

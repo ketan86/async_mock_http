@@ -3,19 +3,21 @@
 import configparser
 import os
 from collections import abc
+from functools import lru_cache
 
 from httpmocker.utils import singleton
 
 PREFIX = "HTTP_MOCKER_"
 
 DEFAULT_CONFIG = {
-    "HOST": "0.0.0.0",
-    "HTTP_PORT": "8080",
-    "HTTPS_PORT": "443",
-    "SSL_CERT": None,
-    "SSL_KEY": None,
-    "REQUEST_TIMEOUT": 10,
-    "HANDLER_STORAGE": "./httpmocker/handlers"
+    'HOST': '0.0.0.0',
+    'PORT': '8080',
+    'SSL_PORT': '443',
+    'SSL_CERT': None,
+    'SSL_KEY': None,
+    'REQUEST_TIMEOUT': 10,
+    'HANDLER_STORAGE_ROOT': './httpmocker/handlers/',
+    'CERT_STORAGE_ROOT': './httpmocker/certs/'
 }
 
 
@@ -43,7 +45,8 @@ def _get_bool(val):
 #     return Config(config[section])
 
 
-def load_from_env_vars(prefix=PREFIX):
+@lru_cache(maxsize=128)
+def get_config(prefix=PREFIX):
     config = Config(None)
     for k, v in os.environ.items():
         if k.startswith(prefix):

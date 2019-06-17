@@ -13,7 +13,7 @@ from httpmocker.app.base_app import BaseApp
 from httpmocker.handler import HANDLER_DATA_URL, HANDLER_URL, HandlerMixin
 from sanic import Blueprint, Sanic, request, response
 from sanic.exceptions import SanicException
-from sanic.router import RouteExists, RouteDoesNotExist
+from sanic.router import RouteDoesNotExist, RouteExists
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +33,6 @@ def enforce_headers(headers):
 
 
 class SanicApp(HandlerMixin, BaseApp):
-    SANIC_HANDLERS_LOCATION = './httpmocker/handlers/sanic/'
-    CERT_STORAGE_LOCATION = './httpmocker/certs/sanic/'
-
     NAME = 'sanic'
 
     def __init__(self, config):
@@ -72,10 +69,6 @@ class SanicApp(HandlerMixin, BaseApp):
         @self.app.route(HANDLER_URL, methods=['POST'])
         @enforce_headers(['m-handler-name'])
         def add_blueprint(request):
-            import sys
-            print(sys.meta_path)
-            self.HANDLER_LOCATION = self.SANIC_HANDLERS_LOCATION + \
-                f'/{self._port}/'
             handler_name = request.headers['m-handler-name']
             blueprint_name = request.headers.get(
                 'm-blueprint-name', None) or 'bp'
@@ -103,9 +96,6 @@ class SanicApp(HandlerMixin, BaseApp):
         @self.app.route(HANDLER_URL, methods=['DELETE'])
         @enforce_headers(['m-handler-name'])
         def remove_blueprint(request):
-            self.HANDLER_LOCATION = self.SANIC_HANDLERS_LOCATION + \
-                f'/{self._port}/'
-
             handler_name = request.headers['m-handler-name']
             blueprint_name = request.headers.get(
                 'm-blueprint-name', None) or 'bp'
