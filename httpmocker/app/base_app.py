@@ -36,8 +36,10 @@ class BaseApp(SSLMixin, AbstractHandler, metaclass=MetaApp):
         self._host = '0.0.0.0'
         self._port = None
         self.handler_data = {}
-        self.save_cert(config.get(
-            'ssl_cert', None), config.get('ssl_key', None))
+        cert = config.get('ssl_cert', None)
+        key = config.get('ssl_key', None)
+        if cert and key:
+            self.save_cert(cert, key)
 
     def get_handler_storage_root(self):
         return get_config().get('HANDLER_STORAGE_ROOT') + \

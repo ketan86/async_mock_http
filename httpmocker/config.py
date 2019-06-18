@@ -17,7 +17,9 @@ DEFAULT_CONFIG = {
     'SSL_KEY': None,
     'REQUEST_TIMEOUT': 10,
     'HANDLER_STORAGE_ROOT': './httpmocker/handlers/',
-    'CERT_STORAGE_ROOT': './httpmocker/certs/'
+    'CERT_STORAGE_ROOT': './httpmocker/certs/',
+    'SERVER_LOG_FILE': './httpmocker/server.log',
+    'SERVER_LOG_LEVEL': 'DEBUG'
 }
 
 
