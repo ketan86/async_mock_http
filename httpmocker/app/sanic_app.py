@@ -125,6 +125,23 @@ class SanicApp(HandlerMixin, BaseApp):
                                  status=HTTPStatus.OK)
 
     def reg_handler_data_route(self):
+
+        @self.app.route(HANDLER_DATA_URL, methods=['GET'])
+        @enforce_headers(['m-handler-url'])
+        def set_blueprint_data(request):
+            url = request.headers['m-handler-url']
+            print(self.app.router.routes_all.keys())
+            if url in self.handler_data:
+                msg = f'Data found for \'{url}\' route.'
+                logger.info(msg)
+                return response.json(
+                    self.handler_data[url],
+                    status=HTTPStatus.OK)
+
+            msg = 'Blueprint data not found for \'{url}\' route.'
+            logger.info(msg)
+            return response.json({'msg': msg}, status=HTTPStatus.NOT_FOUND)
+
         @self.app.route(HANDLER_DATA_URL, methods=['POST'])
         @enforce_headers(['m-handler-url'])
         def set_blueprint_data(request):

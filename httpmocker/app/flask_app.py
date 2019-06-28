@@ -102,6 +102,18 @@ class FlaskApp(HandlerMixin, BaseApp):
                                  HTTPStatus.OK)
 
     def reg_handler_data_route(self):
+
+        @self.app.route(HANDLER_DATA_URL, methods=['GET'])
+        def get_blueprint_data():
+            url = request.headers['m-handler-url']
+            if url in self.handler_data:
+                return make_response(json.dumps(self.handler_data[url]),
+                                     HTTPStatus.OK)
+            else:
+                return make_response(jsonify(
+                    msg=f'Blueprint data not found for a given url.'),
+                    HTTPStatus.NOT_FOUND)
+
         @self.app.route(HANDLER_DATA_URL, methods=['POST'])
         def set_blueprint_data():
             url = request.headers['m-handler-url']

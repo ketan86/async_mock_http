@@ -131,7 +131,18 @@ class DjangoApp(HandlerMixin, BaseApp):
         @enforce_headers(['m-handler-url'])
         def handle_data(request):
             url = request.headers['m-handler-url']
-            if request.method == "POST":
+            if request.method == "GET":
+                if url in self.handler_data:
+                    return HttpResponse(
+                        json.dumps(self.handler_data[url]),
+                        status=HTTPStatus.OK)
+                else:
+                    return HttpResponse(
+                        json.dumps(
+                            {'msg': f'View data not found '
+                             f'for \'{url}\' route.'}),
+                        status=HTTPStatus.NOT_FOUND)
+            elif request.method == "POST":
                 self.handler_data[url] = json.loads(
                     request.body.decode())
                 return HttpResponse(

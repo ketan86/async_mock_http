@@ -15,11 +15,29 @@ from httpmocker.utils import permit_access_if
 logger = logging.getLogger(__name__)
 
 
+class AppType:
+    SANIC = 'sanic'
+    DJANGO = 'django'
+    FLASK = 'flask'
+
+
 def mock_via(app_type, port, **kwargs):
     with Client() as client:
         app = client.app(app_type, port, **kwargs)
         app.start()
         return app
+
+
+def mock_via_flask(port, **kwargs):
+    return mock_via(AppType.FLASK, port, **kwargs)
+
+
+def mock_via_sanic(port, **kwargs):
+    return mock_via(AppType.SANIC, port, **kwargs)
+
+
+def mock_via_django(port, **kwargs):
+    return mock_via(AppType.DJANGO, port, **kwargs)
 
 
 class BaseAdapter(abc.ABC):
@@ -93,12 +111,6 @@ class HTTPSAdapter(HTTPAdapter):
             raise ConnectError(
                 f'Could not connect to a server {self.host}')
         return self._conn
-
-
-class AppType:
-    SANIC = 'sanic'
-    DJANGO = 'django'
-    FLASK = 'flask'
 
 
 class Handler:
