@@ -32,7 +32,7 @@ setup(
     author="Ketan Patel",
     author_email="ketan86ecer@gmail.com",
     url="",
-    description="Mock webservices using your favorite python web framework.",
+    description="Mock http apis using your favorite python web framework.",
     long_description=codecs.open("README.rst", "rb", "utf8").read(),
     # Classifiers (see https://pypi.python.org/pypi?%3Aaction=list_classifiers)
     classifiers=[

@@ -8,10 +8,11 @@ from multiprocessing import Process, ProcessError
 
 import click
 from httpmocker.app.base_app import AppRegistry
-from httpmocker.exceptions import AppStartFailed, AppStopFailed
-from httpmocker.utils import singleton
-from httpmocker.log import configure_logging
+from httpmocker.client import AppType, Client
 from httpmocker.config import get_config
+from httpmocker.exceptions import AppStartFailed, AppStopFailed
+from httpmocker.log import configure_logging
+from httpmocker.utils import singleton
 
 logger = logging.getLogger(__name__)
 
@@ -232,9 +233,7 @@ def run(host, port):
     config = get_config()
     host = config.get('HOST', host)
     port = int(config.get('PORT', port))
-
     server = Server(config)
-
     http_server = HTTPServer((host, port), MockHTTPRequestHandler)
     try:
         http_server.serve_forever()
