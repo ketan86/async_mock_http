@@ -9,7 +9,4 @@
     :target: https://coveralls.io/github/*github_repository*?branch=master
 
 
-You are seeing this description because the package owner is lazy and did not
-provide a detailed description for its project ;-)
-
-Since you are here, please help with the httpmocker's documentation!
+Mock http apis using your favorite python web framework.
